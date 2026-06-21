@@ -67,7 +67,7 @@ select{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns='htt
 
 .inv-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
 .inv-row:last-child{border-bottom:none}
-.inv-name{font-size:13px;flex:1;line-height:1.4}
+.inv-name{font-size:11px;flex:1;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .inv-input{width:72px;padding:8px;font-size:18px;font-weight:700;text-align:center;border-radius:8px;background:var(--bg3);border:1px solid var(--border);outline:none;-webkit-appearance:none}
 .inv-input:focus{border-color:var(--accent)}
 
@@ -175,19 +175,19 @@ select{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns='htt
 
 <script>
 const ITEMS = [
-  '①まな板','②スポンジ3個入','③ティッシュ160組',
-  '④ペーパータオル200枚','⑤トイレットペーパー8R',
-  '⑥布巾12枚入','⑦洗濯機洗剤2100g','⑧食器洗剤100ml',
-  '⑨抹茶スティック','⑩紅茶カプセル12個入',
-  '⑪コーヒーカプセル12個入','⑫緑茶カプセル12個入',
-  '⑬コーヒーフレッシュ','⑭シュガースティック','⑮スリッパ',
-  '⑯水2L×12本','⑰シャンプー1000ml','⑱コンディショナー1000ml',
-  '⑲ハンドソープ1000ml','⑳ボディソープ1000ml','㉑お菓子',
-  '㉒単3電池','㉓単4電池','㉔電球',
-  '㉕ゴミ袋45L×100枚','㉖ゴミ袋30L×30枚',
-  '㉗ゴミ袋10L×100枚','㉘水500ml×24本',
-  '㉙コースター100枚入','㉚ボディタオル25個入','㉛綿棒',
-  '㉜ダストパック','㉝ハブラシ250本'
+  '①まな板1枚','②スポンジ3個入り','③ティッシュ　160組1箱',
+  '④ペーパータオル　1箱200枚入り','⑤トイレットペーパー 8ロール入り',
+  '⑥布巾１２枚入り','⑦洗濯機洗剤　2100g','⑧食器洗剤　100ｍｌ',
+  '⑨抹茶スティック箱単位','⑩紅茶カプセル 1箱12個入り',
+  '⑪コーヒーカプセル 1箱12個入り','⑫緑茶カプセル 1箱12個入り',
+  '⑬コーヒーフレッシュ袋','⑭シュガースティック箱・袋','⑮スリッパ個',
+  '⑯水　2L　12本入り','⑰シャンプー　1000ml','⑱コンディショナー 1000ml',
+  '⑲ハンドソープ 1000ml','⑳ボディソープ 1000ml','㉑お菓子　個',
+  '㉒単3電池　本','㉓単4電池　本','㉔電球',
+  '㉕ゴミ袋 　45L　100枚入り','㉖ゴミ袋 　30L　30枚入り',
+  '㉗ゴミ袋　 10L  100枚入り　2冊セット','㉘水　500ml　24本入',
+  '㉙コースター100枚入り','㉚ボディタオル25個入り','㉛綿棒',
+  '㉜使い捨てダストパック　袋','㉝使い捨てハブラシ250本セット'
 ];
 const HOUSES = ['禅','薪','玄','彩','藍','清'];
 let GAS_URL='', itemSettings={}, selectedRepHouse='', selectedRepMonth='';
@@ -428,7 +428,7 @@ async function calcReplenish(){
       shortItems.forEach(function(item){
         var cur = stock[item]||0;
         var req = needed[item];
-        html += '<div class="alert-item"><span style="color:var(--red)">'+item+'</span><span>在庫'+cur+' / 必要'+req+' / <strong style="color:var(--red)">あと'+(req-cur)+'個</strong></span></div>';
+        html += '<div class="alert-item"><span style="color:var(--red);font-size:11px">'+item+'</span><span>在庫'+cur+' / 必要'+req+' / <strong style="color:var(--red)">あと'+(req-cur)+'個</strong></span></div>';
       });
       html += '</div>';
     } else if(activeItems.length){
@@ -443,7 +443,7 @@ async function calcReplenish(){
         var diff = cur-req;
         var ng   = req>0&&diff<0;
         html += '<div style="display:grid;grid-template-columns:1fr 50px 50px 50px;gap:4px;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px;align-items:center">';
-        html += '<span>'+item+'</span>';
+        html += '<span style="font-size:11px">'+item+'</span>';
         html += '<span style="text-align:center;font-family:\'DM Mono\',monospace">'+cur+'</span>';
         html += '<span style="text-align:center;font-family:\'DM Mono\',monospace">'+(req||'-')+'</span>';
         html += '<span style="text-align:center;font-family:\'DM Mono\',monospace;font-weight:700;color:'+(ng?'var(--red)':'var(--green)')+'">'+( req>0?(diff>=0?'+'+diff:diff):'-')+'</span>';
