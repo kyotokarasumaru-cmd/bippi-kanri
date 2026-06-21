@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>備品管理</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=DM+Mono:wght@400;500&display=swap');
+:root{--bg:#f5f6fa;--bg2:#fff;--bg3:#f0f2f7;--border:#dde1ec;--accent:#3b7ef8;--green:#10b981;--red:#ef4444;--yellow:#f59e0b;--text:#1a1f36;--text2:#5a6380;--text3:#9aa0b8;--r:10px}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;-webkit-font-smoothing:antialiased}
+
+#setup{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px 16px;gap:20px}
+.logo-text{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:5px;color:var(--text3);text-transform:uppercase}
+.setup-h{font-size:22px;font-weight:700}
+.setup-card{width:100%;max-width:420px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:24px}
+.setup-card h3{font-size:14px;font-weight:700;color:var(--accent);margin-bottom:18px;display:flex;align-items:center;gap:8px}
+.steps{display:flex;flex-direction:column;gap:12px;margin-bottom:20px}
+.step{display:flex;gap:12px;align-items:flex-start}
+.snum{width:22px;height:22px;border-radius:50%;background:var(--accent);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.stxt{font-size:13px;color:var(--text2);line-height:1.65}
+.stxt strong{color:var(--text)}
+.input-row{display:flex;gap:8px}
+.url-input{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:11px 13px;color:var(--text);font-size:12px;font-family:'DM Mono',monospace;outline:none}
+.url-input:focus{border-color:var(--accent)}
+.url-input::placeholder{color:var(--text3)}
+#setup-err{color:var(--red);font-size:12px;margin-top:6px;display:none}
+
+.btn{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:11px 18px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;transition:opacity .15s,transform .1s;white-space:nowrap;display:inline-flex;align-items:center;gap:6px}
+.btn:hover{opacity:.85}.btn:active{transform:scale(.96)}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text2)}
+.btn-ghost:hover{border-color:var(--accent);color:var(--accent);background:transparent}
+.btn-green{background:var(--green);color:#fff}
+.btn-sm{padding:8px 13px;font-size:12px}
+.btn-block{width:100%;justify-content:center;padding:14px}
+
+#app{display:none}
+.header{background:var(--bg2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100}
+.header-inner{max-width:600px;margin:0 auto;height:50px;padding:0 16px;display:flex;align-items:center;justify-content:space-between}
+.header-logo{font-family:'DM Mono',monospace;font-size:12px;letter-spacing:2px;color:var(--accent);text-transform:uppercase}
+.live{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text2)}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:blink 2s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+#global-alert{display:none;background:#ef4444;color:#fff;font-size:12px;font-weight:700;padding:8px 16px;text-align:center;cursor:pointer}
+
+.tabs-bar{background:var(--bg2);border-bottom:1px solid var(--border);overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.tabs-bar::-webkit-scrollbar{display:none}
+.tabs{display:flex;max-width:600px;margin:0 auto;padding:0 4px}
+.tab{padding:13px 14px;font-size:13px;color:var(--text3);cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:color .15s,border-color .15s;user-select:none;flex:1;text-align:center}
+.tab:hover{color:var(--text2)}.tab.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:700}
+
+.content{max-width:600px;margin:0 auto;padding:16px 14px 80px}
+.panel{display:none}.panel.active{display:block}
+
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:18px;margin-bottom:14px}
+.card-title{font-size:12px;font-weight:700;color:var(--text2);letter-spacing:1px;text-transform:uppercase;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+
+.fg{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
+label{font-size:11px;color:var(--text3);font-weight:600;letter-spacing:.3px}
+input,select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px 14px;color:var(--text);font-size:16px;font-family:'Noto Sans JP',sans-serif;outline:none;width:100%;transition:border-color .15s;-webkit-appearance:none;appearance:none}
+input:focus,select:focus{border-color:var(--accent)}
+select{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%239aa0b8' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;padding-right:36px}
+
+.house-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+.house-btn{background:var(--bg2);border:2px solid var(--border);border-radius:var(--r);padding:16px 8px;text-align:center;cursor:pointer;font-size:20px;font-weight:700;transition:all .15s}
+.house-btn:hover,.house-btn.active{border-color:var(--accent);background:rgba(59,126,248,.06);color:var(--accent)}
+
+.inv-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
+.inv-row:last-child{border-bottom:none}
+.inv-name{font-size:13px;flex:1;line-height:1.4}
+.inv-input{width:72px;padding:8px;font-size:18px;font-weight:700;text-align:center;border-radius:8px;background:var(--bg3);border:1px solid var(--border);outline:none;-webkit-appearance:none}
+.inv-input:focus{border-color:var(--accent)}
+
+.month-tabs{display:flex;gap:8px;margin-bottom:16px;overflow-x:auto;padding-bottom:4px}
+.month-tab{padding:7px 16px;border-radius:20px;font-size:13px;cursor:pointer;white-space:nowrap;background:var(--bg3);border:1px solid var(--border);color:var(--text2);transition:all .15s}
+.month-tab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+
+.alert-box{background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.25);border-radius:var(--r);padding:14px 16px;margin-bottom:14px}
+.alert-title{font-size:13px;font-weight:700;color:var(--red);margin-bottom:8px}
+.alert-item{font-size:13px;color:var(--red);padding:3px 0;display:flex;justify-content:space-between}
+
+.empty{text-align:center;padding:40px 16px;color:var(--text3);font-size:13px}
+.empty-ico{font-size:32px;margin-bottom:10px}
+.loading{display:flex;align-items:center;justify-content:center;gap:10px;padding:40px;color:var(--text3);font-size:13px}
+.spin{width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(120px);background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 24px;font-size:13px;z-index:9999;transition:transform .3s ease;box-shadow:0 8px 30px rgba(0,0,0,.12);white-space:nowrap}
+#toast.show{transform:translateX(-50%) translateY(0)}
+#toast.success{border-color:var(--green);color:var(--green)}
+#toast.error{border-color:var(--red);color:var(--red)}
+</style>
+</head>
+<body>
+
+<div id="setup">
+  <div class="logo-text">Bippi Kanri</div>
+  <div class="setup-h">ゲストハウス備品管理</div>
+  <div class="setup-card">
+    <h3>🔗 Google Sheets 連携設定</h3>
+    <div class="steps">
+      <div class="step"><div class="snum">1</div><div class="stxt">配分請求_共有台帳の<strong>「拡張機能」→「Apps Script」</strong>を開く</div></div>
+      <div class="step"><div class="snum">2</div><div class="stxt"><strong>gas_code.js</strong>を全コピーして貼り付け→保存</div></div>
+      <div class="step"><div class="snum">3</div><div class="stxt">「デプロイ」→「新しいデプロイ」→ウェブアプリ→全員→デプロイ</div></div>
+      <div class="step"><div class="snum">4</div><div class="stxt">発行された<strong>URLを貼り付けて接続</strong></div></div>
+    </div>
+    <div class="input-row">
+      <input class="url-input" id="gas-url" type="url" placeholder="https://script.google.com/macros/s/...">
+      <button class="btn" onclick="connect()">接続</button>
+    </div>
+    <div id="setup-err"></div>
+  </div>
+  <div style="font-size:11px;color:var(--text3)">URLはブラウザに保存されます</div>
+</div>
+
+<div id="app">
+  <div class="header">
+    <div class="header-inner">
+      <div class="header-logo">備品管理</div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <div class="live"><div class="dot"></div><span>接続済み</span></div>
+        <button class="btn btn-ghost btn-sm" onclick="resetConn()">設定</button>
+      </div>
+    </div>
+    <div id="global-alert" onclick="switchTab('checkin')"></div>
+  </div>
+  <div class="tabs-bar">
+    <div class="tabs">
+      <div class="tab active" data-tab="checkin">🧹 棚卸し</div>
+      <div class="tab" data-tab="replenish">🔔 補充確認</div>
+      <div class="tab" data-tab="settings">⚙️ 設定</div>
+    </div>
+  </div>
+  <div class="content">
+
+    <!-- 棚卸し -->
+    <div class="panel active" id="panel-checkin">
+      <div class="card">
+        <div class="card-title">🧹 棚卸し入力</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:14px">掃除のあとに実際の在庫数を数えて入力</div>
+        <div class="house-grid" id="ci-house-grid"></div>
+        <input type="hidden" id="ci-house">
+        <div class="fg"><label>日付</label><input type="date" id="ci-date"></div>
+      </div>
+      <div id="ci-body"><div class="empty"><div class="empty-ico">🧹</div>宿を選んでください</div></div>
+      <div id="ci-submit" style="display:none;margin-top:14px">
+        <button class="btn btn-green btn-block" onclick="submitCheckin()">✓ 保存する</button>
+      </div>
+    </div>
+
+    <!-- 補充確認 -->
+    <div class="panel" id="panel-replenish">
+      <div class="card">
+        <div class="card-title">🔔 補充確認</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:14px">月の予約に対して不足する備品を確認</div>
+        <div class="month-tabs" id="month-tabs"></div>
+        <div class="house-grid" id="rep-house-grid"></div>
+      </div>
+      <div id="rep-body"><div class="empty"><div class="empty-ico">🔔</div>月と宿を選んでください</div></div>
+    </div>
+
+    <!-- 設定 -->
+    <div class="panel" id="panel-settings">
+      <div class="card">
+        <div class="card-title">⚙️ 消費量設定</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:14px">チェックイン毎 or 1泊1人あたりの消費量（どちらか一方）</div>
+        <div id="settings-body"></div>
+        <button class="btn btn-green btn-block" style="margin-top:14px" onclick="saveSettings()">💾 保存する</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+const ITEMS = [
+  '①まな板1枚','②スポンジ3個入り','③ティッシュ　160組1箱',
+  '④ペーパータオル　1箱200枚入り','⑤トイレットペーパー 8ロール入り',
+  '⑥布巾１２枚入り','⑦洗濯機洗剤　2100g','⑧食器洗剤　100ｍｌ',
+  '⑨抹茶スティック箱単位','⑩紅茶カプセル 1箱12個入り',
+  '⑪コーヒーカプセル 1箱12個入り','⑫緑茶カプセル 1箱12個入り',
+  '⑬コーヒーフレッシュ袋','⑭シュガースティック箱・袋','⑮スリッパ個',
+  '⑯水　2L　12本入り','⑰シャンプー　1000ml','⑱コンディショナー 1000ml',
+  '⑲ハンドソープ 1000ml','⑳ボディソープ 1000ml','㉑お菓子　個',
+  '㉒単3電池　本','㉓単4電池　本','㉔電球',
+  '㉕ゴミ袋 　45L　100枚入り','㉖ゴミ袋 　30L　30枚入り',
+  '㉗ゴミ袋　 10L  100枚入り　2冊セット','㉘水　500ml　24本入',
+  '㉙コースター100枚入り','㉚ボディタオル25個入り','㉛綿棒',
+  '㉜使い捨てダストパック　袋','㉝使い捨てハブラシ250本セット'
+];
+const HOUSES = ['禅','薪','玄','彩','藍','清'];
+let GAS_URL='', itemSettings={}, selectedRepHouse='', selectedRepMonth='';
+
+window.addEventListener('load', function(){
+  GAS_URL = localStorage.getItem('gas_url')||'';
+  if(GAS_URL) showApp();
+  var t = new Date().toISOString().slice(0,10);
+  document.getElementById('ci-date').value = t;
+  initUI();
+  initMonthTabs();
+});
+
+function initUI(){
+  document.getElementById('ci-house-grid').innerHTML =
+    HOUSES.map(function(h){ return '<div class="house-btn" onclick="selectCheckinHouse(\''+h+'\')">'+h+'</div>'; }).join('');
+  document.getElementById('rep-house-grid').innerHTML =
+    HOUSES.map(function(h){ return '<div class="house-btn" onclick="selectRepHouse(\''+h+'\')">'+h+'</div>'; }).join('');
+}
+
+function initMonthTabs(){
+  var now = new Date();
+  var html = '';
+  for(var i=0;i<4;i++){
+    var d = new Date(now.getFullYear(), now.getMonth()+i, 1);
+    var ym = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+    var label = (d.getMonth()+1)+'月';
+    var active = i===1 ? ' active' : '';
+    if(i===1) selectedRepMonth = ym;
+    html += '<div class="month-tab'+active+'" onclick="selectRepMonth(\''+ym+'\',this)">'+label+'</div>';
+  }
+  document.getElementById('month-tabs').innerHTML = html;
+}
+
+function loadItemSettings(){
+  api('getItemSettings').then(function(s){
+    if(Object.keys(s).length > 0){
+      itemSettings = s;
+    } else {
+      setDefaultSettings();
+      api('saveItemSettings', {settings: itemSettings});
+    }
+    renderSettingsTable();
+  }).catch(function(){
+    setDefaultSettings();
+    renderSettingsTable();
+  });
+}
+
+function setDefaultSettings(){
+  itemSettings = {
+    '②スポンジ3個入り':{perCheckin:1,perPersonNight:0},
+    '③ティッシュ　160組1箱':{perCheckin:1,perPersonNight:0},
+    '④ペーパータオル　1箱200枚入り':{perCheckin:1,perPersonNight:0},
+    '⑤トイレットペーパー 8ロール入り':{perCheckin:1,perPersonNight:0},
+    '⑦洗濯機洗剤　2100g':{perCheckin:1,perPersonNight:0},
+    '⑧食器洗剤　100ｍｌ':{perCheckin:1,perPersonNight:0},
+    '⑨抹茶スティック箱単位':{perCheckin:0,perPersonNight:1},
+    '⑩紅茶カプセル 1箱12個入り':{perCheckin:0,perPersonNight:1},
+    '⑪コーヒーカプセル 1箱12個入り':{perCheckin:0,perPersonNight:1},
+    '⑫緑茶カプセル 1箱12個入り':{perCheckin:0,perPersonNight:1},
+    '⑬コーヒーフレッシュ袋':{perCheckin:0,perPersonNight:1},
+    '⑭シュガースティック箱・袋':{perCheckin:1,perPersonNight:0},
+    '⑮スリッパ個':{perCheckin:0,perPersonNight:1},
+    '⑯水　2L　12本入り':{perCheckin:1,perPersonNight:0},
+    '⑰シャンプー　1000ml':{perCheckin:1,perPersonNight:0},
+    '⑱コンディショナー 1000ml':{perCheckin:1,perPersonNight:0},
+    '⑲ハンドソープ 1000ml':{perCheckin:1,perPersonNight:0},
+    '⑳ボディソープ 1000ml':{perCheckin:1,perPersonNight:0},
+    '㉑お菓子　個':{perCheckin:0,perPersonNight:1},
+    '㉕ゴミ袋 　45L　100枚入り':{perCheckin:1,perPersonNight:0},
+    '㉖ゴミ袋 　30L　30枚入り':{perCheckin:1,perPersonNight:0},
+    '㉗ゴミ袋　 10L  100枚入り　2冊セット':{perCheckin:1,perPersonNight:0},
+    '㉘水　500ml　24本入':{perCheckin:1,perPersonNight:0},
+    '㉙コースター100枚入り':{perCheckin:1,perPersonNight:0},
+    '㉚ボディタオル25個入り':{perCheckin:0,perPersonNight:1},
+    '㉛綿棒':{perCheckin:1,perPersonNight:0},
+    '㉜使い捨てダストパック　袋':{perCheckin:1,perPersonNight:0},
+    '㉝使い捨てハブラシ250本セット':{perCheckin:0,perPersonNight:1}
+  };
+}
+
+function switchTab(tabId){
+  document.querySelectorAll('.tab').forEach(function(t){ t.classList.remove('active'); });
+  document.querySelectorAll('.panel').forEach(function(p){ p.classList.remove('active'); });
+  var tab = document.querySelector('[data-tab="'+tabId+'"]');
+  if(tab) tab.classList.add('active');
+  var panel = document.getElementById('panel-'+tabId);
+  if(panel) panel.classList.add('active');
+}
+
+document.querySelectorAll('.tab').forEach(function(tab){
+  tab.addEventListener('click', function(){ switchTab(tab.dataset.tab); });
+});
+
+async function connect(){
+  var url = document.getElementById('gas-url').value.trim();
+  if(!url.startsWith('https://script.google.com')){ showErr('有効なURLを入力してください'); return; }
+  GAS_URL = url;
+  try{
+    await api('getMasterData');
+    localStorage.setItem('gas_url', GAS_URL);
+    showApp();
+  }catch(e){ showErr('接続できませんでした。'); }
+}
+function showErr(msg){ var e=document.getElementById('setup-err'); e.textContent=msg; e.style.display='block'; }
+function resetConn(){ if(confirm('設定をリセットしますか？')){ localStorage.removeItem('gas_url'); location.reload(); } }
+function showApp(){
+  document.getElementById('setup').style.display='none';
+  document.getElementById('app').style.display='block';
+  loadItemSettings();
+  checkGlobalAlerts();
+}
+
+async function api(action, extra){
+  extra = extra||{};
+  var res = await fetch(GAS_URL,{method:'POST',body:JSON.stringify(Object.assign({action:action},extra)),headers:{'Content-Type':'text/plain'}});
+  var json = await res.json();
+  if(!json.success) throw new Error(json.error);
+  return json.data;
+}
+
+// グローバルアラート
+async function checkGlobalAlerts(){
+  try{
+    var bookings = await api('getBookings');
+    var now = new Date();
+    var ym = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+    var cutoff = ym+'-20';
+    var monthStart = ym+'-01';
+    var today = now.toISOString().slice(0,10);
+    var alerts = [];
+    HOUSES.forEach(function(house){
+      var checkouts = bookings
+        .filter(function(b){ return b.house===house && b.checkout>=monthStart && b.checkout<cutoff && !String(b.status||'').includes('キャンセル'); })
+        .map(function(b){ return b.checkout; }).sort();
+      var last = checkouts[checkouts.length-1];
+      if(last && today >= last) alerts.push(house);
+    });
+    var el = document.getElementById('global-alert');
+    if(alerts.length > 0){
+      el.style.display = 'block';
+      el.textContent = '🔔 棚卸しタイミング：'+alerts.join('・')+'　→タップして棚卸しへ';
+    } else {
+      el.style.display = 'none';
+    }
+  }catch(e){}
+}
+
+// 棚卸し
+function selectCheckinHouse(house){
+  document.getElementById('ci-house').value = house;
+  document.querySelectorAll('#ci-house-grid .house-btn').forEach(function(b){ b.classList.toggle('active', b.textContent===house); });
+  var rows = ITEMS.map(function(item,i){
+    return '<div class="inv-row"><div class="inv-name">'+item+'</div><input type="number" class="inv-input" id="ci-'+i+'" placeholder="0" min="0"></div>';
+  }).join('');
+  document.getElementById('ci-body').innerHTML =
+    '<div id="ci-timing"><div style="font-size:12px;color:var(--text3)">確認中...</div></div>'+
+    '<div class="card"><div class="card-title">🧹 '+house+' の在庫数を入力</div>'+rows+'</div>';
+  document.getElementById('ci-submit').style.display = 'block';
+
+  var now = new Date();
+  var ym = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+  api('getCheckinTiming', {house:house, month:ym}).then(function(t){
+    var el = document.getElementById('ci-timing');
+    if(!el) return;
+    if(t.lastCheckout && t.daysSince !== null && t.daysSince >= 0){
+      el.innerHTML = '<div style="background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.25);border-radius:8px;padding:12px 14px;margin-bottom:8px;font-size:13px">🔔 <strong>棚卸しタイミングです！</strong><br><span style="color:var(--text2)">'+t.lastCheckout+' チェックアウト後（'+t.daysSince+'日経過）</span></div>';
+    } else if(t.lastCheckout){
+      el.innerHTML = '<div style="background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.25);border-radius:8px;padding:12px 14px;margin-bottom:8px;font-size:13px">📅 今月の棚卸し予定日：<strong>'+t.lastCheckout+' チェックアウト後</strong></div>';
+    } else {
+      el.innerHTML = '';
+    }
+  }).catch(function(){ var el=document.getElementById('ci-timing'); if(el) el.innerHTML=''; });
+}
+
+async function submitCheckin(){
+  var house = document.getElementById('ci-house').value;
+  var date  = document.getElementById('ci-date').value;
+  if(!house||!date){ toast('宿と日付を入力してください','error'); return; }
+  var stockData = {};
+  ITEMS.forEach(function(item,i){ stockData[item] = Number(document.getElementById('ci-'+i)&&document.getElementById('ci-'+i).value)||0; });
+  try{
+    await api('saveHouseStock', {house:house, date:date, stockData:stockData});
+    toast(house+'の棚卸しを保存しました ✓');
+  }catch(e){ toast('保存失敗: '+e.message,'error'); }
+}
+
+// 補充確認
+function selectRepMonth(ym, el){
+  selectedRepMonth = ym;
+  document.querySelectorAll('.month-tab').forEach(function(t){ t.classList.remove('active'); });
+  el.classList.add('active');
+  if(selectedRepHouse) calcReplenish();
+}
+function selectRepHouse(house){
+  selectedRepHouse = house;
+  document.querySelectorAll('#rep-house-grid .house-btn').forEach(function(b){ b.classList.toggle('active', b.textContent===house); });
+  calcReplenish();
+}
+async function calcReplenish(){
+  if(!selectedRepHouse||!selectedRepMonth) return;
+  var el = document.getElementById('rep-body');
+  el.innerHTML = '<div class="loading"><div class="spin"></div>計算中...</div>';
+  try{
+    var results = await Promise.all([api('getHouseStock',{house:selectedRepHouse}), api('getBookings')]);
+    var stock = results[0];
+    var bookings = results[1];
+    var targets = bookings.filter(function(b){
+      return b.house===selectedRepHouse && b.checkin.startsWith(selectedRepMonth) && !String(b.status||'').includes('キャンセル');
+    });
+    var needed = {};
+    ITEMS.forEach(function(item){
+      var s = itemSettings[item]||{};
+      var total = 0;
+      targets.forEach(function(b){
+        var nights = dayDiff(b.checkin, b.checkout);
+        var guests = Number(b.guests)||1;
+        total += (s.perCheckin||0) + (s.perPersonNight||0)*guests*nights;
+      });
+      needed[item] = Math.ceil(total);
+    });
+    var activeItems = ITEMS.filter(function(item){ return needed[item]>0||(stock[item]||0)>0; });
+    var shortItems  = activeItems.filter(function(item){ return needed[item]>0&&(stock[item]||0)<needed[item]; });
+    var m = selectedRepMonth.split('-');
+    var html = '<div class="card" style="margin-bottom:14px"><div class="card-title">📅 '+selectedRepHouse+'　'+Number(m[1])+'月の予約（'+targets.length+'件）</div>';
+    if(targets.length===0){
+      html += '<div style="font-size:13px;color:var(--text3)">予約なし</div>';
+    } else {
+      targets.forEach(function(b){
+        var n = dayDiff(b.checkin, b.checkout);
+        html += '<div style="padding:7px 0;border-bottom:1px solid var(--border);font-size:13px;display:flex;justify-content:space-between"><span>'+b.checkin+'</span><span style="color:var(--text2)">'+b.guests+'名　'+n+'泊</span></div>';
+      });
+    }
+    html += '</div>';
+    if(shortItems.length){
+      html += '<div class="alert-box"><div class="alert-title">⚠️ 補充が必要な品目（'+shortItems.length+'件）</div>';
+      shortItems.forEach(function(item){
+        var cur = stock[item]||0;
+        var req = needed[item];
+        html += '<div class="alert-item"><span style="color:var(--red)">'+item+'</span><span>在庫'+cur+' / 必要'+req+' / <strong style="color:var(--red)">あと'+(req-cur)+'個</strong></span></div>';
+      });
+      html += '</div>';
+    } else if(activeItems.length){
+      html += '<div style="background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.25);border-radius:var(--r);padding:14px;margin-bottom:14px;font-size:13px;color:var(--green);font-weight:700">✓ 補充不要！全品目足りています</div>';
+    }
+    if(activeItems.length){
+      html += '<div class="card"><div class="card-title">📋 全品目一覧</div>';
+      html += '<div style="display:grid;grid-template-columns:1fr 50px 50px 50px;gap:4px;padding:6px 0;font-size:10px;font-weight:700;color:var(--text3);border-bottom:1px solid var(--border)"><span>品目</span><span style="text-align:center">在庫</span><span style="text-align:center">必要</span><span style="text-align:center">過不足</span></div>';
+      activeItems.forEach(function(item){
+        var cur  = stock[item]||0;
+        var req  = needed[item]||0;
+        var diff = cur-req;
+        var ng   = req>0&&diff<0;
+        html += '<div style="display:grid;grid-template-columns:1fr 50px 50px 50px;gap:4px;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px;align-items:center">';
+        html += '<span>'+item+'</span>';
+        html += '<span style="text-align:center;font-family:\'DM Mono\',monospace">'+cur+'</span>';
+        html += '<span style="text-align:center;font-family:\'DM Mono\',monospace">'+(req||'-')+'</span>';
+        html += '<span style="text-align:center;font-family:\'DM Mono\',monospace;font-weight:700;color:'+(ng?'var(--red)':'var(--green)')+'">'+( req>0?(diff>=0?'+'+diff:diff):'-')+'</span>';
+        html += '</div>';
+      });
+      html += '</div>';
+    } else {
+      html += '<div class="empty"><div class="empty-ico">📅</div>この月の予約データがありません</div>';
+    }
+    el.innerHTML = html;
+  }catch(e){ el.innerHTML='<div class="empty">計算失敗: '+e.message+'</div>'; }
+}
+
+// 設定
+function renderSettingsTable(){
+  var html = '';
+  ITEMS.forEach(function(item,i){
+    var s = itemSettings[item]||{};
+    html += '<div style="display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--border)">';
+    html += '<div style="flex:1;font-size:12px;line-height:1.4">'+item+'</div>';
+    html += '<div style="display:flex;flex-direction:column;align-items:center;gap:3px"><label style="font-size:10px">CI毎</label><input type="number" id="s-ci-'+i+'" value="'+(s.perCheckin||'')+'" min="0" step="1" placeholder="-" style="width:50px;padding:6px;font-size:14px;font-weight:700;text-align:center" oninput="document.getElementById(\'s-pp-'+i+'\').value=\'\'"></div>';
+    html += '<div style="display:flex;flex-direction:column;align-items:center;gap:3px"><label style="font-size:10px">1泊1人</label><input type="number" id="s-pp-'+i+'" value="'+(s.perPersonNight||'')+'" min="0" step="1" placeholder="-" style="width:50px;padding:6px;font-size:14px;font-weight:700;text-align:center" oninput="document.getElementById(\'s-ci-'+i+'\').value=\'\'"></div>';
+    html += '</div>';
+  });
+  document.getElementById('settings-body').innerHTML = html;
+}
+async function saveSettings(){
+  ITEMS.forEach(function(item,i){
+    itemSettings[item] = {
+      perCheckin:     Number(document.getElementById('s-ci-'+i)&&document.getElementById('s-ci-'+i).value)||0,
+      perPersonNight: Number(document.getElementById('s-pp-'+i)&&document.getElementById('s-pp-'+i).value)||0
+    };
+  });
+  try{
+    await api('saveItemSettings', {settings:itemSettings});
+    toast('設定を保存しました ✓');
+  }catch(e){ toast('保存失敗','error'); }
+}
+
+function dayDiff(from,to){
+  if(!from||!to) return 0;
+  var d = Math.round((new Date(to)-new Date(from))/86400000);
+  return d>0&&d<365?d:0;
+}
+var toastTimer;
+function toast(msg,type){
+  type = type||'success';
+  var t = document.getElementById('toast');
+  t.textContent = (type==='success'?'✓ ':'✕ ')+msg;
+  t.className = 'show '+type;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function(){ t.className=''; }, 3000);
+}
+</script>
+</body>
+</html>
