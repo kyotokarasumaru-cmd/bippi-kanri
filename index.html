@@ -320,12 +320,14 @@ async function checkGlobalAlerts(){
     var monthStart = ym+'-01';
     var today = now.toISOString().slice(0,10);
     var alerts = [];
-    HOUSES.forEach(function(house){
-      var checkouts = bookings
-        .filter(function(b){ return b.house===house && b.checkout>=monthStart && b.checkout<cutoff && !String(b.status||'').includes('キャンセル'); })
-        .map(function(b){ return b.checkout; }).sort();
-      var last = checkouts[checkouts.length-1];
-      if(last && today >= last) alerts.push(house);
+    var timingResults = await Promise.all(HOUSES.map(function(house){
+      return api('getCheckinTiming', {house:house, month:ym});
+    }));
+    HOUSES.forEach(function(house, i){
+      var t = timingResults[i];
+      if(!t.inventoried && t.lastCheckout && t.daysSince !== null && t.daysSince >= 0){
+        alerts.push(house);
+      }
     });
     var el = document.getElementById('global-alert');
     if(alerts.length > 0){
@@ -354,7 +356,9 @@ function selectCheckinHouse(house){
   api('getCheckinTiming', {house:house, month:ym}).then(function(t){
     var el = document.getElementById('ci-timing');
     if(!el) return;
-    if(t.lastCheckout && t.daysSince !== null && t.daysSince >= 0){
+    if(t.inventoried){
+      el.innerHTML = '<div style="background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.25);border-radius:8px;padding:12px 14px;margin-bottom:8px;font-size:13px;color:var(--green)">✓ 今月の棚卸し済みです</div>';
+    } else if(t.lastCheckout && t.daysSince !== null && t.daysSince >= 0){
       el.innerHTML = '<div style="background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.25);border-radius:8px;padding:12px 14px;margin-bottom:8px;font-size:13px">🔔 <strong>棚卸しタイミングです！</strong><br><span style="color:var(--text2)">'+t.lastCheckout+' チェックアウト後（'+t.daysSince+'日経過）</span></div>';
     } else if(t.lastCheckout){
       el.innerHTML = '<div style="background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.25);border-radius:8px;padding:12px 14px;margin-bottom:8px;font-size:13px">📅 今月の棚卸し予定日：<strong>'+t.lastCheckout+' チェックアウト後</strong></div>';
