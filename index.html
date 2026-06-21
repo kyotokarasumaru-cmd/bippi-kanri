@@ -189,6 +189,43 @@ const ITEMS = [
   '㉙コースター100枚入り','㉚ボディタオル25個入り','㉛綿棒',
   '㉜使い捨てダストパック　袋','㉝使い捨てハブラシ250本セット'
 ];
+
+const DISPLAY_NAMES = {
+  '①まな板1枚':                        '①まな板',
+  '②スポンジ3個入り':                   '②スポンジ',
+  '③ティッシュ　160組1箱':              '③ティッシュ',
+  '④ペーパータオル　1箱200枚入り':      '④ペーパータオル',
+  '⑤トイレットペーパー 8ロール入り':    '⑤トイレットペーパー',
+  '⑥布巾１２枚入り':                    '⑥布巾',
+  '⑦洗濯機洗剤　2100g':                '⑦洗濯機洗剤',
+  '⑧食器洗剤　100ｍｌ':                '⑧食器洗剤',
+  '⑨抹茶スティック箱単位':              '⑨抹茶スティック',
+  '⑩紅茶カプセル 1箱12個入り':          '⑩紅茶カプセル',
+  '⑪コーヒーカプセル 1箱12個入り':      '⑪コーヒーカプセル',
+  '⑫緑茶カプセル 1箱12個入り':          '⑫緑茶カプセル',
+  '⑬コーヒーフレッシュ袋':              '⑬コーヒーフレッシュ',
+  '⑭シュガースティック箱・袋':          '⑭シュガースティック',
+  '⑮スリッパ個':                        '⑮スリッパ',
+  '⑯水　2L　12本入り':                  '⑯水2L',
+  '⑰シャンプー　1000ml':               '⑰シャンプー1000ml',
+  '⑱コンディショナー 1000ml':           '⑱コンディショナー1000ml',
+  '⑲ハンドソープ 1000ml':              '⑲ハンドソープ1000ml',
+  '⑳ボディソープ 1000ml':              '⑳ボディソープ1000ml',
+  '㉑お菓子　個':                        '㉑お菓子',
+  '㉒単3電池　本':                      '㉒単3電池',
+  '㉓単4電池　本':                      '㉓単4電池',
+  '㉔電球':                              '㉔電球',
+  '㉕ゴミ袋 　45L　100枚入り':          '㉕ゴミ袋45L',
+  '㉖ゴミ袋 　30L　30枚入り':           '㉖ゴミ袋30L',
+  '㉗ゴミ袋　 10L  100枚入り　2冊セット':'㉗ゴミ袋10L',
+  '㉘水　500ml　24本入':                '㉘水500ml',
+  '㉙コースター100枚入り':               '㉙コースター',
+  '㉚ボディタオル25個入り':              '㉚ボディタオル',
+  '㉛綿棒':                              '㉛綿棒',
+  '㉜使い捨てダストパック　袋':          '㉜ダストパック',
+  '㉝使い捨てハブラシ250本セット':       '㉝ハブラシ'
+};
+function dn(item){ return DISPLAY_NAMES[item]||item; }
 const HOUSES = ['禅','薪','玄','彩','藍','清'];
 let GAS_URL='', itemSettings={}, selectedRepHouse='', selectedRepMonth='';
 
@@ -340,7 +377,7 @@ function selectCheckinHouse(house){
   document.getElementById('ci-house').value = house;
   document.querySelectorAll('#ci-house-grid .house-btn').forEach(function(b){ b.classList.toggle('active', b.textContent===house); });
   var rows = ITEMS.map(function(item,i){
-    return '<div class="inv-row"><div class="inv-name">'+item+'</div><input type="number" class="inv-input" id="ci-'+i+'" placeholder="0" min="0"></div>';
+    return '<div class="inv-row"><div class="inv-name">'+dn(item)+'</div><input type="number" class="inv-input" id="ci-'+i+'" placeholder="0" min="0"></div>';
   }).join('');
   document.getElementById('ci-body').innerHTML =
     '<div id="ci-timing"><div style="font-size:12px;color:var(--text3)">確認中...</div></div>'+
@@ -404,19 +441,40 @@ async function calcReplenish(){
     var results = await Promise.all([api('getHouseStock',{house:selectedRepHouse}), api('getBookings')]);
     var stock = results[0];
     var bookings = results[1];
-    var targets = bookings.filter(function(b){
-      return b.house===selectedRepHouse && b.checkin.startsWith(selectedRepMonth) && !String(b.status||'').includes('キャンセル');
-    });
+
+    // 今月を基準に、選択月までの全予約消費を累計
+    var now = new Date();
+    var thisYM = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+
+    // 選択月が今月以前なら表示しない
+    if(selectedRepMonth <= thisYM){
+      el.innerHTML = '<div class="empty"><div class="empty-ico">📅</div>今月以降の月を選んでください</div>';
+      return;
+    }
+
+    // 今月〜選択月までの全予約を累計消費
     var needed = {};
     ITEMS.forEach(function(item){
       var s = itemSettings[item]||{};
       var total = 0;
-      targets.forEach(function(b){
+      // 今月の翌月から選択月まで全部足す
+      bookings.filter(function(b){
+        return b.house===selectedRepHouse &&
+          b.checkin > thisYM+'-31' &&  // 今月以降
+          b.checkin.slice(0,7) <= selectedRepMonth && // 選択月まで
+          !String(b.status||'').includes('キャンセル');
+      }).forEach(function(b){
         var nights = dayDiff(b.checkin, b.checkout);
         var guests = Number(b.guests)||1;
-        total += (s.perCheckin||0) + (s.perPersonNight||0)*guests*nights;
+        total += (s.perCheckin||0) + (s.perPersonNight||0)*guests*nights + (s.perPerson||0)*guests;
       });
+      if(s.absolute && total > 0) total = Math.max(total, s.absolute);
       needed[item] = Math.ceil(total);
+    });
+
+    // 選択月の予約（件数表示用）
+    var targets = bookings.filter(function(b){
+      return b.house===selectedRepHouse && b.checkin.startsWith(selectedRepMonth) && !String(b.status||'').includes('キャンセル');
     });
     var activeItems = ITEMS.filter(function(item){ return needed[item]>0||(stock[item]||0)>0; });
     var shortItems  = activeItems.filter(function(item){ return needed[item]>0&&(stock[item]||0)<needed[item]; });
@@ -436,7 +494,7 @@ async function calcReplenish(){
       shortItems.forEach(function(item){
         var cur = stock[item]||0;
         var req = needed[item];
-        html += '<div class="alert-item"><span style="color:var(--red);font-size:11px">'+item+'</span><span>在庫'+cur+' / 必要'+req+' / <strong style="color:var(--red)">あと'+(req-cur)+'個</strong></span></div>';
+        html += '<div class="alert-item"><span style="color:var(--red);font-size:11px">'+dn(item)+'</span><span>在庫'+cur+' / 必要'+req+' / <strong style="color:var(--red)">あと'+(req-cur)+'個</strong></span></div>';
       });
       html += '</div>';
     } else if(activeItems.length){
@@ -467,13 +525,16 @@ async function calcReplenish(){
 
 // 設定
 function renderSettingsTable(){
-  var html = '';
+  var html = '<div style="display:grid;grid-template-columns:1fr 50px 50px 50px 50px;gap:4px;padding:6px 0;font-size:10px;font-weight:700;color:var(--text3);border-bottom:2px solid var(--border);text-align:center">';
+  html += '<span style="text-align:left">品目</span><span>CI毎</span><span>1泊1人</span><span>1人</span><span>絶対値</span></div>';
   ITEMS.forEach(function(item,i){
     var s = itemSettings[item]||{};
-    html += '<div style="display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--border)">';
-    html += '<div style="flex:1;font-size:12px;line-height:1.4">'+item+'</div>';
-    html += '<div style="display:flex;flex-direction:column;align-items:center;gap:3px"><label style="font-size:10px">CI毎</label><input type="number" id="s-ci-'+i+'" value="'+(s.perCheckin||'')+'" min="0" step="1" placeholder="-" style="width:50px;padding:6px;font-size:14px;font-weight:700;text-align:center" oninput="document.getElementById(\'s-pp-'+i+'\').value=\'\'"></div>';
-    html += '<div style="display:flex;flex-direction:column;align-items:center;gap:3px"><label style="font-size:10px">1泊1人</label><input type="number" id="s-pp-'+i+'" value="'+(s.perPersonNight||'')+'" min="0" step="1" placeholder="-" style="width:50px;padding:6px;font-size:14px;font-weight:700;text-align:center" oninput="document.getElementById(\'s-ci-'+i+'\').value=\'\'"></div>';
+    html += '<div style="display:grid;grid-template-columns:1fr 50px 50px 50px 50px;gap:4px;padding:7px 0;border-bottom:1px solid var(--border);align-items:center">';
+    html += '<div style="font-size:11px;line-height:1.4">'+dn(item)+'</div>';
+    html += '<input type="number" id="s-ci-'+i+'" value="'+(s.perCheckin||'')+'" min="0" step="1" placeholder="-" style="padding:5px 2px;font-size:13px;font-weight:700;text-align:center">';
+    html += '<input type="number" id="s-pp-'+i+'" value="'+(s.perPersonNight||'')+'" min="0" step="1" placeholder="-" style="padding:5px 2px;font-size:13px;font-weight:700;text-align:center">';
+    html += '<input type="number" id="s-pg-'+i+'" value="'+(s.perPerson||'')+'" min="0" step="1" placeholder="-" style="padding:5px 2px;font-size:13px;font-weight:700;text-align:center">';
+    html += '<input type="number" id="s-ab-'+i+'" value="'+(s.absolute||'')+'" min="0" step="1" placeholder="-" style="padding:5px 2px;font-size:13px;font-weight:700;text-align:center">';
     html += '</div>';
   });
   document.getElementById('settings-body').innerHTML = html;
@@ -482,7 +543,9 @@ async function saveSettings(){
   ITEMS.forEach(function(item,i){
     itemSettings[item] = {
       perCheckin:     Number(document.getElementById('s-ci-'+i)&&document.getElementById('s-ci-'+i).value)||0,
-      perPersonNight: Number(document.getElementById('s-pp-'+i)&&document.getElementById('s-pp-'+i).value)||0
+      perPersonNight: Number(document.getElementById('s-pp-'+i)&&document.getElementById('s-pp-'+i).value)||0,
+      perPerson:      Number(document.getElementById('s-pg-'+i)&&document.getElementById('s-pg-'+i).value)||0,
+      absolute:       Number(document.getElementById('s-ab-'+i)&&document.getElementById('s-ab-'+i).value)||0
     };
   });
   try{
