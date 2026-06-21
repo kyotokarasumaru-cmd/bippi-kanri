@@ -313,19 +313,15 @@ async function api(action, extra){
 // グローバルアラート
 async function checkGlobalAlerts(){
   try{
-    var bookings = await api('getBookings');
     var now = new Date();
     var ym = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
-    var cutoff = ym+'-20';
-    var monthStart = ym+'-01';
-    var today = now.toISOString().slice(0,10);
-    var alerts = [];
-    var timingResults = await Promise.all(HOUSES.map(function(house){
-      return api('getCheckinTiming', {house:house, month:ym});
+    var results = await Promise.all(HOUSES.map(function(house){
+      return api('getCheckinTiming',{house:house,month:ym});
     }));
-    HOUSES.forEach(function(house, i){
-      var t = timingResults[i];
-      if(!t.inventoried && t.lastCheckout && t.daysSince !== null && t.daysSince >= 0){
+    var alerts = [];
+    HOUSES.forEach(function(house,i){
+      var t = results[i];
+      if(!t.inventoried && t.lastCheckout && t.daysSince!==null && t.daysSince>=0){
         alerts.push(house);
       }
     });
@@ -376,7 +372,15 @@ async function submitCheckin(){
   ITEMS.forEach(function(item,i){ stockData[item] = Number(document.getElementById('ci-'+i)&&document.getElementById('ci-'+i).value)||0; });
   try{
     await api('saveHouseStock', {house:house, date:date, stockData:stockData});
+    // 棚卸し済みをlocalStorageに記録
+    var ym = date.slice(0,7);
+    var key = 'inventoried_'+house+'_'+ym;
+    localStorage.setItem(key, '1');
     toast(house+'の棚卸しを保存しました ✓');
+    checkGlobalAlerts();
+    // 棚卸し済み表示に更新
+    var el = document.getElementById('ci-timing');
+    if(el) el.innerHTML = '<div style="background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.25);border-radius:8px;padding:12px 14px;margin-bottom:8px;font-size:13px;color:var(--green)">✓ 今月の棚卸し済みです</div>';
   }catch(e){ toast('保存失敗: '+e.message,'error'); }
 }
 
