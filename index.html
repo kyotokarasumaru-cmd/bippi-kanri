@@ -272,7 +272,7 @@ function loadItemSettings(){
       itemSettings = res.settings;
     } else {
       setDefaultSettings();
-      api('saveItemSettings', {settings: itemSettings});
+      // スプレッドシートには保存しない（勝手に初期化されるのを防ぐ）
     }
     renderSettingsTable();
   }).catch(function(){
