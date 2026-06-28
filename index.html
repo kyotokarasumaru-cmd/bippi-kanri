@@ -498,14 +498,19 @@ async function calcAllHouses(){
     if(selectedRepMonth <= thisYM){
       el.innerHTML = '<div class="empty"><div class="empty-ico">📅</div>今月以降の月を選んでください</div>'; return;
     }
-    var results = await Promise.all([
-      api('getAllStock'),
-      api('getBookings'),
-      api('getAllExclusions').catch(function(){ return {}; })
-    ]);
-    var allStock = results[0]||{};
-    var bookings = results[1]||[];
-    var allExcl  = results[2]||{};
+    // 既存エンドポイントだけで全宿分を並列取得（getAllStock等が無くても動く）
+    var calls = [api('getBookings')];
+    HOUSES.forEach(function(h){
+      calls.push(api('getHouseStock',{house:h}));
+      calls.push(api('getHouseExclusions',{house:h}).catch(function(){ return []; }));
+    });
+    var res = await Promise.all(calls);
+    var bookings = res[0]||[];
+    var allStock = {}, allExcl = {};
+    HOUSES.forEach(function(h, idx){
+      allStock[h] = res[1 + idx*2] || {};
+      allExcl[h]  = res[2 + idx*2] || [];
+    });
 
     var order = {};
     ITEMS.forEach(function(item){ order[item] = 0; });
