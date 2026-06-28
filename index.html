@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>備品管理</title>
+<title>在庫管理</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=DM+Mono:wght@400;500&display=swap');
 :root{--bg:#f5f6fa;--bg2:#fff;--bg3:#f0f2f7;--border:#dde1ec;--accent:#3b7ef8;--green:#10b981;--red:#ef4444;--yellow:#f59e0b;--text:#1a1f36;--text2:#5a6380;--text3:#9aa0b8;--r:10px}
@@ -64,6 +64,7 @@ select{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns='htt
 .house-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
 .house-btn{background:var(--bg2);border:2px solid var(--border);border-radius:var(--r);padding:16px 8px;text-align:center;cursor:pointer;font-size:20px;font-weight:700;transition:all .15s}
 .house-btn:hover,.house-btn.active{border-color:var(--accent);background:rgba(59,126,248,.06);color:var(--accent)}
+.rep-all-btn.active{border-color:var(--accent);color:var(--accent);background:rgba(59,126,248,.06)}
 
 .inv-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
 .inv-row:last-child{border-bottom:none}
@@ -95,7 +96,7 @@ select{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns='htt
 
 <div id="setup">
   <div class="logo-text">Bippi Kanri</div>
-  <div class="setup-h">ゲストハウス備品管理</div>
+  <div class="setup-h">ゲストハウス在庫管理</div>
   <div class="setup-card">
     <h3>🔗 Google Sheets 連携設定</h3>
     <div class="steps">
@@ -116,7 +117,7 @@ select{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns='htt
 <div id="app">
   <div class="header">
     <div class="header-inner">
-      <div class="header-logo">備品管理</div>
+      <div class="header-logo">在庫管理</div>
       <div style="display:flex;align-items:center;gap:10px">
         <button id="reload-btn" class="btn btn-ghost btn-sm" onclick="reloadData()" style="padding:7px 11px;font-size:15px">🔄</button>
         <div class="live"><div class="dot"></div><span>接続済み</span></div>
@@ -154,6 +155,7 @@ select{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns='htt
         <div class="card-title">🔔 補充確認</div>
         <div style="font-size:12px;color:var(--text2);margin-bottom:14px">月の予約に対して不足する備品を確認</div>
         <div class="month-tabs" id="month-tabs"></div>
+        <button class="btn btn-ghost btn-sm btn-block rep-all-btn" style="margin-bottom:10px" onclick="selectRepAll(this)">🏠 全宿合計（発注数）</button>
         <div class="house-grid" id="rep-house-grid"></div>
       </div>
       <div id="rep-body"><div class="empty"><div class="empty-ico">🔔</div>月と宿を選んでください</div></div>
@@ -410,12 +412,30 @@ function selectCheckinHouse(house){
   }).join('');
   document.getElementById('ci-body').innerHTML =
     '<div id="ci-timing"><div style="font-size:12px;color:var(--text3)">確認中...</div></div>'+
-    '<div class="card"><div class="card-title">🧹 '+house+' の在庫数を入力</div>'+rows+'</div>';
+    '<div class="card"><div class="card-title">🧹 '+house+' の在庫数を入力</div>'+
+    '<div id="ci-lastdate" style="font-size:12px;color:var(--text2);margin-bottom:6px">前回の棚卸し日を確認中...</div>'+
+    '<div style="font-size:11px;color:var(--text3);margin-bottom:6px">前回の棚卸し数が初期値で入っています。変わったところだけ直してください</div>'+rows+'</div>';
   document.getElementById('ci-submit').style.display = 'block';
+
+  // 前回の棚卸し数を初期値として反映
+  api('getHouseStock', {house:house}).then(function(stock){
+    ITEMS.forEach(function(item,i){
+      var inp = document.getElementById('ci-'+i);
+      if(inp && stock && (item in stock)) inp.value = stock[item];
+    });
+  }).catch(function(){});
 
   var now = new Date();
   var ym = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
   api('getCheckinTiming', {house:house, month:ym}).then(function(t){
+    var ld = document.getElementById('ci-lastdate');
+    if(ld){
+      if(t.lastInventoryDate){
+        ld.innerHTML = '📋 前回の棚卸し：<strong>'+t.lastInventoryDate.replace(/-/g,'/')+'</strong>';
+      } else {
+        ld.innerHTML = '📋 前回の棚卸し記録はありません';
+      }
+    }
     var el = document.getElementById('ci-timing');
     if(!el) return;
     if(t.inventoried){
@@ -427,7 +447,7 @@ function selectCheckinHouse(house){
     } else {
       el.innerHTML = '';
     }
-  }).catch(function(){ var el=document.getElementById('ci-timing'); if(el) el.innerHTML=''; });
+  }).catch(function(){ var el=document.getElementById('ci-timing'); if(el) el.innerHTML=''; var ld=document.getElementById('ci-lastdate'); if(ld) ld.innerHTML=''; });
 }
 
 async function submitCheckin(){
@@ -447,16 +467,87 @@ async function submitCheckin(){
 }
 
 // 補充確認
+function fmtNum(n){ var r = Math.round((Number(n)||0)*1000)/1000; return String(r); }
 function selectRepMonth(ym, el){
   selectedRepMonth = ym;
   document.querySelectorAll('.month-tab').forEach(function(t){ t.classList.remove('active'); });
   el.classList.add('active');
-  if(selectedRepHouse) calcReplenish();
+  if(selectedRepHouse==='__ALL__') calcAllHouses();
+  else if(selectedRepHouse) calcReplenish();
 }
 function selectRepHouse(house){
   selectedRepHouse = house;
+  document.querySelectorAll('.rep-all-btn').forEach(function(b){ b.classList.remove('active'); });
   document.querySelectorAll('#rep-house-grid .house-btn').forEach(function(b){ b.classList.toggle('active', b.textContent===house); });
   calcReplenish();
+}
+function selectRepAll(el){
+  selectedRepHouse = '__ALL__';
+  document.querySelectorAll('#rep-house-grid .house-btn').forEach(function(b){ b.classList.remove('active'); });
+  document.querySelectorAll('.rep-all-btn').forEach(function(b){ b.classList.add('active'); });
+  if(selectedRepMonth) calcAllHouses();
+}
+
+// 全宿合計（発注数）：各宿の不足を品目ごとに合計
+async function calcAllHouses(){
+  var el = document.getElementById('rep-body');
+  el.innerHTML = '<div class="loading"><div class="spin"></div>全宿を集計中...</div>';
+  try{
+    var now = new Date();
+    var thisYM = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+    if(selectedRepMonth <= thisYM){
+      el.innerHTML = '<div class="empty"><div class="empty-ico">📅</div>今月以降の月を選んでください</div>'; return;
+    }
+    var results = await Promise.all([
+      api('getAllStock'),
+      api('getBookings'),
+      api('getAllExclusions').catch(function(){ return {}; })
+    ]);
+    var allStock = results[0]||{};
+    var bookings = results[1]||[];
+    var allExcl  = results[2]||{};
+
+    var order = {};
+    ITEMS.forEach(function(item){ order[item] = 0; });
+    HOUSES.forEach(function(house){
+      var stock = allStock[house]||{};
+      var exSet = {}; (allExcl[house]||[]).forEach(function(it){ exSet[it] = true; });
+      ITEMS.forEach(function(item){
+        if(exSet[item]) return;
+        var s = itemSettings[item]||{};
+        var total = 0;
+        bookings.filter(function(b){
+          return b.house===house && b.checkin > thisYM+'-31' && b.checkin.slice(0,7) <= selectedRepMonth && !String(b.status||'').includes('キャンセル');
+        }).forEach(function(b){
+          var nights = dayDiff(b.checkin, b.checkout);
+          var guests = Number(b.guests)||1;
+          total += (s.perCheckin||0) + (s.perPersonNight||0)*guests*nights + (s.perPerson||0)*guests;
+        });
+        if(s.absolute && total > 0) total = Math.max(total, s.absolute);
+        var need = Math.ceil(total);
+        var short = need - (stock[item]||0);
+        if(short > 0) order[item] += short;
+      });
+    });
+
+    var m = selectedRepMonth.split('-');
+    var orderItems = ITEMS.filter(function(it){ return order[it] > 0; });
+    var html = '<div class="card" style="margin-bottom:14px"><div class="card-title">🏠 全宿合計　'+Number(m[1])+'月の発注数</div><div style="font-size:12px;color:var(--text2)">6宿それぞれの不足を品目ごとに合計した発注数です（対象外の宿は除外）</div></div>';
+    if(orderItems.length){
+      html += '<div class="card"><div class="card-title">🛒 発注リスト（'+orderItems.length+'品目）</div>';
+      html += '<div style="display:grid;grid-template-columns:1fr 70px;gap:4px;padding:6px 0;font-size:10px;font-weight:700;color:var(--text3);border-bottom:1px solid var(--border)"><span>品目</span><span style="text-align:center">発注数</span></div>';
+      orderItems.forEach(function(item){
+        html += '<div style="display:grid;grid-template-columns:1fr 70px;gap:4px;padding:9px 0;border-bottom:1px solid var(--border);align-items:center">';
+        html += '<span style="font-size:12px">'+dn(item)+'</span>';
+        html += '<span style="text-align:center;font-family:\'DM Mono\',monospace;font-weight:700;font-size:16px;color:var(--accent)">'+fmtNum(order[item])+'</span>';
+        html += '</div>';
+      });
+      html += '</div>';
+    } else {
+      html += '<div style="background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.25);border-radius:var(--r);padding:14px;font-size:13px;color:var(--green);font-weight:700">✓ 全宿とも発注不要です</div>';
+    }
+    el.innerHTML = html;
+  }catch(e){ el.innerHTML = '<div class="empty">集計失敗: '+e.message+'</div>'; }
 }
 async function calcReplenish(){
   if(!selectedRepHouse||!selectedRepMonth) return;
@@ -529,7 +620,7 @@ async function calcReplenish(){
       shortItems.forEach(function(item){
         var cur = stock[item]||0;
         var req = needed[item];
-        html += '<div class="alert-item"><span style="color:var(--red);font-size:11px">'+dn(item)+'</span><span>在庫'+cur+' / 必要'+req+' / <strong style="color:var(--red)">あと'+(req-cur)+'個</strong></span></div>';
+        html += '<div class="alert-item"><span style="color:var(--red);font-size:11px">'+dn(item)+'</span><span>在庫'+fmtNum(cur)+' / 必要'+fmtNum(req)+' / <strong style="color:var(--red)">あと'+fmtNum(req-cur)+'個</strong></span></div>';
       });
       html += '</div>';
     } else if(displayItems.length){
@@ -547,12 +638,12 @@ async function calcReplenish(){
         var ng   = req>0&&diff<0;
         html += '<div style="display:grid;grid-template-columns:1fr 40px 40px 44px 30px;gap:4px;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px;align-items:center;'+(ex?'opacity:.5':'')+'">';
         html += '<span style="font-size:11px">'+dn(item)+'</span>';
-        html += '<span style="text-align:center;font-family:\'DM Mono\',monospace">'+cur+'</span>';
+        html += '<span style="text-align:center;font-family:\'DM Mono\',monospace">'+fmtNum(cur)+'</span>';
         if(ex){
           html += '<span style="text-align:center;grid-column:span 2;font-size:10px;color:var(--text3)">対象外</span>';
         } else {
-          html += '<span style="text-align:center;font-family:\'DM Mono\',monospace">'+(req||'-')+'</span>';
-          html += '<span style="text-align:center;font-family:\'DM Mono\',monospace;font-weight:700;color:'+(ng?'var(--red)':'var(--green)')+'">'+( req>0?(diff>=0?'+'+diff:diff):'-')+'</span>';
+          html += '<span style="text-align:center;font-family:\'DM Mono\',monospace">'+(req?fmtNum(req):'-')+'</span>';
+          html += '<span style="text-align:center;font-family:\'DM Mono\',monospace;font-weight:700;color:'+(ng?'var(--red)':'var(--green)')+'">'+( req>0?(diff>=0?'+'+fmtNum(diff):fmtNum(diff)):'-')+'</span>';
         }
         html += '<button onclick="toggleExcludeUI('+idx+')" style="background:none;border:none;cursor:pointer;font-size:15px;padding:2px;text-align:center">'+(ex?'🔕':'🔔')+'</button>';
         html += '</div>';
