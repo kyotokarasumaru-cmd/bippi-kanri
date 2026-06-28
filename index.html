@@ -118,6 +118,7 @@ select{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns='htt
     <div class="header-inner">
       <div class="header-logo">備品管理</div>
       <div style="display:flex;align-items:center;gap:10px">
+        <button id="reload-btn" class="btn btn-ghost btn-sm" onclick="reloadData()" style="padding:7px 11px;font-size:15px">🔄</button>
         <div class="live"><div class="dot"></div><span>接続済み</span></div>
       </div>
     </div>
@@ -346,6 +347,15 @@ function showApp(){
   checkGlobalAlerts();
 }
 
+function reloadData(){
+  loadItemSettings();                                  // 品目設定シートを取り直して設定タブを再描画
+  checkGlobalAlerts();                                 // 棚卸しアラートを再判定
+  if(selectedRepHouse && selectedRepMonth) calcReplenish();  // 補充確認を再計算
+  var ch = document.getElementById('ci-house').value;  // 棚卸しタブで宿を選び済みなら更新
+  if(ch) selectCheckinHouse(ch);
+  toast('最新データに更新しました ✓');
+}
+
 async function api(action, extra){
   extra = extra||{};
   var res = await fetch(GAS_URL,{method:'POST',body:JSON.stringify(Object.assign({action:action},extra)),headers:{'Content-Type':'text/plain'}});
@@ -416,10 +426,6 @@ async function submitCheckin(){
   ITEMS.forEach(function(item,i){ stockData[item] = Number(document.getElementById('ci-'+i)&&document.getElementById('ci-'+i).value)||0; });
   try{
     await api('saveHouseStock', {house:house, date:date, stockData:stockData});
-    // 棚卸し済みをlocalStorageに記録
-    var ym = date.slice(0,7);
-    var key = 'inventoried_'+house+'_'+ym;
-    localStorage.setItem(key, '1');
     toast(house+'の棚卸しを保存しました ✓');
     checkGlobalAlerts();
     // 棚卸し済み表示に更新
