@@ -178,7 +178,7 @@ select{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns='htt
 <div id="toast"></div>
 
 <script>
-const ITEMS = [
+let ITEMS = [
   '①まな板1枚','②スポンジ3個入り','③ティッシュ　160組1箱',
   '④ペーパータオル　1箱200枚入り','⑤トイレットペーパー 8ロール入り',
   '⑥布巾１２枚入り','⑦洗濯機洗剤　2100g','⑧食器洗剤　100ｍｌ',
@@ -264,9 +264,12 @@ function initMonthTabs(){
 }
 
 function loadItemSettings(){
-  api('getItemSettings').then(function(s){
-    if(Object.keys(s).length > 0){
-      itemSettings = s;
+  api('getItemSettings').then(function(res){
+    if(res.items && res.items.length > 0){
+      ITEMS = res.items;
+    }
+    if(res.settings && Object.keys(res.settings).length > 0){
+      itemSettings = res.settings;
     } else {
       setDefaultSettings();
       api('saveItemSettings', {settings: itemSettings});
