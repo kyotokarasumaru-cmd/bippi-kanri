@@ -465,12 +465,14 @@ async function calcReplenish(){
   try{
     var results = await Promise.all([
       api('getHouseStock',{house:selectedRepHouse}),
-      api('getBookings'),
-      api('getHouseExclusions',{house:selectedRepHouse})
+      api('getBookings')
     ]);
     var stock = results[0];
     var bookings = results[1];
-    var exclArr = results[2]||[];
+    // 対象外（アラートON/OFF）はGASが新しい場合のみ。古いGASでも落ちないようにする
+    var exclArr = [];
+    try { exclArr = await api('getHouseExclusions',{house:selectedRepHouse}) || []; }
+    catch(e){ exclArr = []; }
     repExcludedSet = {};
     exclArr.forEach(function(it){ repExcludedSet[it] = true; });
 
@@ -573,7 +575,11 @@ function toggleExcludeUI(idx){
   api('setExclusion', {house:selectedRepHouse, item:item, excluded:!nowExcluded}).then(function(){
     toast(!nowExcluded ? '「'+item+'」を対象外にしました' : '「'+item+'」を対象に戻しました');
     calcReplenish();
-  }).catch(function(e){ toast(e.message,'error'); });
+  }).catch(function(e){
+    if(String(e.message||'').indexOf('Unknown action')>=0){
+      toast('この機能はGASの再デプロイが必要です','error');
+    } else { toast(e.message,'error'); }
+  });
 }
 
 // 設定
