@@ -513,7 +513,7 @@ async function calcReplenish(){
         var diff = cur-req;
         var ng   = req>0&&diff<0;
         html += '<div style="display:grid;grid-template-columns:1fr 50px 50px 50px;gap:4px;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px;align-items:center">';
-        html += '<span style="font-size:11px">'+item+'</span>';
+        html += '<span style="font-size:11px">'+dn(item)+'</span>';
         html += '<span style="text-align:center;font-family:\'DM Mono\',monospace">'+cur+'</span>';
         html += '<span style="text-align:center;font-family:\'DM Mono\',monospace">'+(req||'-')+'</span>';
         html += '<span style="text-align:center;font-family:\'DM Mono\',monospace;font-weight:700;color:'+(ng?'var(--red)':'var(--green)')+'">'+( req>0?(diff>=0?'+'+diff:diff):'-')+'</span>';
