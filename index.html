@@ -163,9 +163,19 @@ select{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns='htt
     <div class="panel" id="panel-settings">
       <div class="card">
         <div class="card-title">⚙️ 消費量設定</div>
-        <div style="font-size:12px;color:var(--text2);margin-bottom:14px">CI毎 / 1泊1人 / 1人 / 絶対値</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.7">CI毎=チェックイン毎〇個／1泊1人=1泊1人〇個／1人=1人〇個／絶対値=常時〇個以上</div>
         <div id="settings-body"></div>
         <button class="btn btn-green btn-block" style="margin-top:14px" onclick="saveSettings()">💾 保存する</button>
+      </div>
+      <div class="card">
+        <div class="card-title">📝 品目の管理</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:12px">品目の追加・名称変更・削除（在庫データも自動で追従します）</div>
+        <div style="display:flex;gap:8px;margin-bottom:12px">
+          <input id="new-item-name" type="text" placeholder="新しい品目名を入力" style="flex:1">
+          <button class="btn btn-sm" onclick="addItemUI()">＋追加</button>
+        </div>
+        <button class="btn btn-ghost btn-sm btn-block" style="margin-bottom:14px" onclick="sortItemsUI()">↕ 番号順に並べ替え</button>
+        <div id="item-manager"></div>
       </div>
       <div class="card">
         <div class="card-title">🔗 接続設定</div>
@@ -232,7 +242,7 @@ const DISPLAY_NAMES = {
 };
 function dn(item){ return DISPLAY_NAMES[item]||item; }
 const HOUSES = ['禅','薪','玄','彩','藍','清'];
-let GAS_URL='', itemSettings={}, selectedRepHouse='', selectedRepMonth='';
+let GAS_URL='', itemSettings={}, selectedRepHouse='', selectedRepMonth='', repItems=[], repExcludedSet={};
 
 window.addEventListener('load', function(){
   GAS_URL = localStorage.getItem('gas_url')||'';
@@ -276,9 +286,11 @@ function loadItemSettings(){
       // スプレッドシートには保存しない（勝手に初期化されるのを防ぐ）
     }
     renderSettingsTable();
+    renderItemManager();
   }).catch(function(){
     setDefaultSettings();
     renderSettingsTable();
+    renderItemManager();
   });
 }
 
@@ -451,9 +463,16 @@ async function calcReplenish(){
   var el = document.getElementById('rep-body');
   el.innerHTML = '<div class="loading"><div class="spin"></div>計算中...</div>';
   try{
-    var results = await Promise.all([api('getHouseStock',{house:selectedRepHouse}), api('getBookings')]);
+    var results = await Promise.all([
+      api('getHouseStock',{house:selectedRepHouse}),
+      api('getBookings'),
+      api('getHouseExclusions',{house:selectedRepHouse})
+    ]);
     var stock = results[0];
     var bookings = results[1];
+    var exclArr = results[2]||[];
+    repExcludedSet = {};
+    exclArr.forEach(function(it){ repExcludedSet[it] = true; });
 
     // 今月を基準に、選択月までの全予約消費を累計
     var now = new Date();
@@ -465,16 +484,16 @@ async function calcReplenish(){
       return;
     }
 
-    // 今月〜選択月までの全予約を累計消費
+    // 今月〜選択月までの全予約を累計消費（対象外の品目は0）
     var needed = {};
     ITEMS.forEach(function(item){
+      if(repExcludedSet[item]){ needed[item] = 0; return; }
       var s = itemSettings[item]||{};
       var total = 0;
-      // 今月の翌月から選択月まで全部足す
       bookings.filter(function(b){
         return b.house===selectedRepHouse &&
-          b.checkin > thisYM+'-31' &&  // 今月以降
-          b.checkin.slice(0,7) <= selectedRepMonth && // 選択月まで
+          b.checkin > thisYM+'-31' &&
+          b.checkin.slice(0,7) <= selectedRepMonth &&
           !String(b.status||'').includes('キャンセル');
       }).forEach(function(b){
         var nights = dayDiff(b.checkin, b.checkout);
@@ -489,8 +508,11 @@ async function calcReplenish(){
     var targets = bookings.filter(function(b){
       return b.house===selectedRepHouse && b.checkin.startsWith(selectedRepMonth) && !String(b.status||'').includes('キャンセル');
     });
-    var activeItems = ITEMS.filter(function(item){ return needed[item]>0||(stock[item]||0)>0; });
-    var shortItems  = activeItems.filter(function(item){ return needed[item]>0&&(stock[item]||0)<needed[item]; });
+    var shortItems  = ITEMS.filter(function(item){ return !repExcludedSet[item] && needed[item]>0 && (stock[item]||0)<needed[item]; });
+    // 一覧はどの宿でも常に全品目を表示（宿によって品目数が変わらないように）
+    var displayItems = ITEMS.slice();
+    repItems = displayItems;
+
     var m = selectedRepMonth.split('-');
     var html = '<div class="card" style="margin-bottom:14px"><div class="card-title">📅 '+selectedRepHouse+'　'+Number(m[1])+'月の予約（'+targets.length+'件）</div>';
     if(targets.length===0){
@@ -510,30 +532,48 @@ async function calcReplenish(){
         html += '<div class="alert-item"><span style="color:var(--red);font-size:11px">'+dn(item)+'</span><span>在庫'+cur+' / 必要'+req+' / <strong style="color:var(--red)">あと'+(req-cur)+'個</strong></span></div>';
       });
       html += '</div>';
-    } else if(activeItems.length){
+    } else if(displayItems.length){
       html += '<div style="background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.25);border-radius:var(--r);padding:14px;margin-bottom:14px;font-size:13px;color:var(--green);font-weight:700">✓ 補充不要！全品目足りています</div>';
     }
-    if(activeItems.length){
+    if(displayItems.length){
       html += '<div class="card"><div class="card-title">📋 全品目一覧</div>';
-      html += '<div style="display:grid;grid-template-columns:1fr 50px 50px 50px;gap:4px;padding:6px 0;font-size:10px;font-weight:700;color:var(--text3);border-bottom:1px solid var(--border)"><span>品目</span><span style="text-align:center">在庫</span><span style="text-align:center">必要</span><span style="text-align:center">過不足</span></div>';
-      activeItems.forEach(function(item){
+      html += '<div style="font-size:11px;color:var(--text3);margin-bottom:8px">🔔=対象（アラートON）／🔕=対象外（OFF）。ベルを押すと切り替わります</div>';
+      html += '<div style="display:grid;grid-template-columns:1fr 40px 40px 44px 30px;gap:4px;padding:6px 0;font-size:10px;font-weight:700;color:var(--text3);border-bottom:1px solid var(--border)"><span>品目</span><span style="text-align:center">在庫</span><span style="text-align:center">必要</span><span style="text-align:center">過不足</span><span></span></div>';
+      displayItems.forEach(function(item,idx){
+        var ex   = !!repExcludedSet[item];
         var cur  = stock[item]||0;
         var req  = needed[item]||0;
         var diff = cur-req;
         var ng   = req>0&&diff<0;
-        html += '<div style="display:grid;grid-template-columns:1fr 50px 50px 50px;gap:4px;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px;align-items:center">';
+        html += '<div style="display:grid;grid-template-columns:1fr 40px 40px 44px 30px;gap:4px;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px;align-items:center;'+(ex?'opacity:.5':'')+'">';
         html += '<span style="font-size:11px">'+dn(item)+'</span>';
         html += '<span style="text-align:center;font-family:\'DM Mono\',monospace">'+cur+'</span>';
-        html += '<span style="text-align:center;font-family:\'DM Mono\',monospace">'+(req||'-')+'</span>';
-        html += '<span style="text-align:center;font-family:\'DM Mono\',monospace;font-weight:700;color:'+(ng?'var(--red)':'var(--green)')+'">'+( req>0?(diff>=0?'+'+diff:diff):'-')+'</span>';
+        if(ex){
+          html += '<span style="text-align:center;grid-column:span 2;font-size:10px;color:var(--text3)">対象外</span>';
+        } else {
+          html += '<span style="text-align:center;font-family:\'DM Mono\',monospace">'+(req||'-')+'</span>';
+          html += '<span style="text-align:center;font-family:\'DM Mono\',monospace;font-weight:700;color:'+(ng?'var(--red)':'var(--green)')+'">'+( req>0?(diff>=0?'+'+diff:diff):'-')+'</span>';
+        }
+        html += '<button onclick="toggleExcludeUI('+idx+')" style="background:none;border:none;cursor:pointer;font-size:15px;padding:2px;text-align:center">'+(ex?'🔕':'🔔')+'</button>';
         html += '</div>';
       });
       html += '</div>';
     } else {
-      html += '<div class="empty"><div class="empty-ico">📅</div>この月の予約データがありません</div>';
+      html += '<div class="empty"><div class="empty-ico">📦</div>品目がありません</div>';
     }
     el.innerHTML = html;
   }catch(e){ el.innerHTML='<div class="empty">計算失敗: '+e.message+'</div>'; }
+}
+
+// 宿ごとの対象外トグル
+function toggleExcludeUI(idx){
+  var item = repItems[idx];
+  if(!item) return;
+  var nowExcluded = !!repExcludedSet[item];
+  api('setExclusion', {house:selectedRepHouse, item:item, excluded:!nowExcluded}).then(function(){
+    toast(!nowExcluded ? '「'+item+'」を対象外にしました' : '「'+item+'」を対象に戻しました');
+    calcReplenish();
+  }).catch(function(e){ toast(e.message,'error'); });
 }
 
 // 設定
@@ -552,6 +592,70 @@ function renderSettingsTable(){
   });
   document.getElementById('settings-body').innerHTML = html;
 }
+// 品目の管理（追加・改名・削除）
+function renderItemManager(){
+  var box = document.getElementById('item-manager');
+  if(!box) return;
+  if(!ITEMS.length){ box.innerHTML = '<div style="font-size:12px;color:var(--text3)">品目がありません</div>'; return; }
+  box.innerHTML = ITEMS.map(function(item,i){
+    return '<div style="display:flex;align-items:center;gap:6px;padding:8px 0;border-bottom:1px solid var(--border)">'
+      + '<span style="flex:1;font-size:12px;line-height:1.4;word-break:break-all">'+item+'</span>'
+      + '<button class="btn btn-ghost btn-sm" style="padding:5px 9px" onclick="renameItemUI('+i+')">✏️</button>'
+      + '<button class="btn btn-ghost btn-sm" style="padding:5px 9px;color:var(--red);border-color:rgba(239,68,68,.3)" onclick="deleteItemUI('+i+')">🗑</button>'
+      + '</div>';
+  }).join('');
+}
+function applyItemRes(res){
+  if(res.items && res.items.length>0) ITEMS = res.items;
+  itemSettings = res.settings || {};
+  renderSettingsTable();
+  renderItemManager();
+  // 開いている棚卸し入力・補充確認も最新の品目で作り直す
+  var ch = document.getElementById('ci-house') && document.getElementById('ci-house').value;
+  if(ch) selectCheckinHouse(ch);
+  if(selectedRepHouse && selectedRepMonth) calcReplenish();
+}
+async function addItemUI(){
+  var inp = document.getElementById('new-item-name');
+  var name = (inp.value||'').trim();
+  if(!name){ toast('品目名を入力してください','error'); return; }
+  try{
+    var res = await api('addItem', {name:name});
+    applyItemRes(res);
+    inp.value = '';
+    toast('「'+name+'」を追加しました ✓');
+  }catch(e){ toast(e.message,'error'); }
+}
+async function renameItemUI(i){
+  var oldName = ITEMS[i];
+  var newName = prompt('新しい品目名', oldName);
+  if(newName===null) return;
+  newName = newName.trim();
+  if(!newName || newName===oldName) return;
+  try{
+    var res = await api('renameItem', {oldName:oldName, newName:newName});
+    applyItemRes(res);
+    toast('名称を変更しました ✓');
+  }catch(e){ toast(e.message,'error'); }
+}
+async function deleteItemUI(i){
+  var name = ITEMS[i];
+  if(!confirm('「'+name+'」を削除しますか？\nこの品目の在庫データも消えます。')) return;
+  try{
+    var res = await api('deleteItem', {name:name});
+    applyItemRes(res);
+    toast('「'+name+'」を削除しました ✓');
+  }catch(e){ toast(e.message,'error'); }
+}
+
+async function sortItemsUI(){
+  try{
+    var res = await api('sortItems');
+    applyItemRes(res);
+    toast('番号順に並べ替えました ✓');
+  }catch(e){ toast(e.message,'error'); }
+}
+
 async function saveSettings(){
   ITEMS.forEach(function(item,i){
     itemSettings[item] = {
