@@ -465,14 +465,12 @@ async function calcReplenish(){
   try{
     var results = await Promise.all([
       api('getHouseStock',{house:selectedRepHouse}),
-      api('getBookings')
+      api('getBookings'),
+      api('getHouseExclusions',{house:selectedRepHouse}).catch(function(){ return []; })
     ]);
     var stock = results[0];
     var bookings = results[1];
-    // 対象外（アラートON/OFF）はGASが新しい場合のみ。古いGASでも落ちないようにする
-    var exclArr = [];
-    try { exclArr = await api('getHouseExclusions',{house:selectedRepHouse}) || []; }
-    catch(e){ exclArr = []; }
+    var exclArr = results[2] || [];
     repExcludedSet = {};
     exclArr.forEach(function(it){ repExcludedSet[it] = true; });
 
